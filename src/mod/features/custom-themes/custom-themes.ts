@@ -6,8 +6,88 @@ let disableVibeAnimationTimer = setInterval(() => {}, 1000 * 60 * 60);
 
 let customThemeEnabled = false;
 let customThemeAccent = "#4A9EFF";
+let forceDarkThemeEnabled = true;
+
+// Override matchMedia for prefers-color-scheme so Yandex Music and scripts always see dark theme
+if (typeof window !== "undefined" && window.matchMedia) {
+  const originalMatchMedia = window.matchMedia;
+  window.matchMedia = function (query: string) {
+    if (forceDarkThemeEnabled && typeof query === "string" && query.includes("prefers-color-scheme")) {
+      const isDark = query.includes("dark");
+      return {
+        matches: isDark,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      } as any;
+    }
+    return originalMatchMedia.call(window, query);
+  };
+}
+
+function enforceDarkTheme() {
+  if (!forceDarkThemeEnabled) return;
+
+  if (document.documentElement) {
+    if (document.documentElement.classList.contains("ym-light-theme")) {
+      document.documentElement.classList.remove("ym-light-theme");
+    }
+    if (document.documentElement.classList.contains("light")) {
+      document.documentElement.classList.remove("light");
+    }
+    if (!document.documentElement.classList.contains("ym-dark-theme")) {
+      document.documentElement.classList.add("ym-dark-theme");
+    }
+    if (!document.documentElement.classList.contains("dark")) {
+      document.documentElement.classList.add("dark");
+    }
+  }
+
+  if (document.body) {
+    if (document.body.classList.contains("ym-light-theme")) {
+      document.body.classList.remove("ym-light-theme");
+    }
+    if (!document.body.classList.contains("ym-dark-theme")) {
+      document.body.classList.add("ym-dark-theme");
+    }
+  }
+}
+
+// Observe class changes on html and body to catch any attempts by Yandex Music to apply light theme
+if (typeof window !== "undefined" && typeof MutationObserver !== "undefined") {
+  const themeObserver = new MutationObserver(() => {
+    if (forceDarkThemeEnabled) {
+      enforceDarkTheme();
+    }
+  });
+
+  if (document.documentElement) {
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  }
+  if (document.body) {
+    themeObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  } else {
+    document.addEventListener("DOMContentLoaded", () => {
+      if (document.body) {
+        themeObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+      }
+      enforceDarkTheme();
+    });
+  }
+  enforceDarkTheme();
+}
 
 async function updateTheme() {
+  const forceDark = (await window.yandexMusicMod.getStorageValue("custom-themes/forceDarkTheme")) !== false;
+  forceDarkThemeEnabled = forceDark;
+  if (forceDarkThemeEnabled) {
+    enforceDarkTheme();
+  }
+
   const enabled = (await window.yandexMusicMod.getStorageValue("custom-themes/enabled")) === true ? true : false;
   const accent = await window.yandexMusicMod.getStorageValue("custom-themes/accent");
   const playerColorsReplaceEnabled =

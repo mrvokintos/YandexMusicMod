@@ -36,6 +36,7 @@ export const MENU_ITEMS = [
 ];
 
 export function CustomThemes() {
+  const [forceDarkTheme, setForceDarkTheme] = useState(true);
   const [customColorsEnabled, setCustomColorsEnabled] = useState(false);
   const [selectedAccentColor, setSelectedAccentColor] = useState(ACCENT_COLORS[0]!);
   const [playerColorsReplaceEnabled, setPlayerColorsReplaceEnabled] = useState(false);
@@ -46,6 +47,7 @@ export function CustomThemes() {
 
   useEffect(() => {
     (async () => {
+      const forceDark = await (window as any).yandexMusicMod.getStorageValue("custom-themes/forceDarkTheme");
       const colorsEnabled = await (window as any).yandexMusicMod.getStorageValue("custom-themes/enabled");
       const accentColor = await (window as any).yandexMusicMod.getStorageValue("custom-themes/accent");
       const playerColorsReplaceEnabled =
@@ -61,6 +63,7 @@ export function CustomThemes() {
           : true;
       const hiddenMenuItems = await (window as any).yandexMusicMod.getStorageValue("custom-themes/hideMenuItems");
 
+      setForceDarkTheme(forceDark !== false);
       setCustomColorsEnabled(colorsEnabled || false);
       setSelectedAccentColor(accentColor || ACCENT_COLORS[0]!);
       setPlayerColorsReplaceEnabled(playerColorsReplaceEnabled);
@@ -73,6 +76,26 @@ export function CustomThemes() {
   return (
     <ExpandableCard title="Интерфейс и тема" icon={<Palette className="h-4 w-4" />}>
       <div className="flex flex-col gap-4 pt-2 px-3">
+        {/* Force Dark Theme Section */}
+        <div className="flex items-center justify-between gap-3 pb-3 border-b border-border/40">
+          <div className="flex flex-col gap-0.5">
+            <Label htmlFor="force-dark-theme-toggle" className="cursor-pointer font-medium text-sm">
+              Только тёмная тема
+            </Label>
+            <span className="text-xs text-muted-foreground">
+              Запретить белую тему при светлой теме в системе
+            </span>
+          </div>
+          <Switch
+            id="force-dark-theme-toggle"
+            checked={forceDarkTheme}
+            onCheckedChange={(value) => {
+              setForceDarkTheme(value);
+              (window as any).yandexMusicMod.setStorageValue("custom-themes/forceDarkTheme", value);
+            }}
+          />
+        </div>
+
         {/* Custom Colors Section */}
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
