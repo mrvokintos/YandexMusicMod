@@ -1,0 +1,28 @@
+name: Linux portable build
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and validate Linux ZIP
+        run: scripts/linux/build_linux.sh
+
+      - name: Upload Linux ZIP
+        uses: actions/upload-artifact@v7
+        with:
+          path: .versions/*/mod/dist/*.zip
+          if-no-files-found: error
+          include-hidden-files: true
+          archive: false
+          retention-days: 14

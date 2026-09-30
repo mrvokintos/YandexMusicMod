@@ -35,18 +35,23 @@
 2. Запустите установку. Официальный клиент отдельно устанавливать не нужно — мод уже интегрирован.
 
 ### 🐧 Linux (x64)
-1. Скачайте архив `yandex-music-liberty-linux.zip` из релиза.
-2. Распакуйте архив в удобную папку:
+1. Соберите проверенный архив командой `scripts/linux/build_linux.sh` из корня репозитория (нужен Podman или Docker).
+2. Распакуйте ZIP из `.versions/<версия>/mod/dist/` в удобную папку:
    ```bash
-   unzip yandex-music-liberty-linux.zip -d yandex-music-liberty
+   unzip .versions/*/mod/dist/YandexMusicMod-*.zip -d yandex-music-liberty
    cd yandex-music-liberty
    ```
 3. Сделайте исполняемый файл запускаемым (если требуется) и запустите:
    ```bash
-   chmod +x yandex-music-liberty
-   ./yandex-music-liberty
+   chmod +x yandexmusicmod
+   ./yandexmusicmod
    ```
+Чтобы добавить приложение в меню рабочего стола, запустите `./install-desktop.py` из распакованной папки. Если перенесёте папку, запустите скрипт ещё раз.
 > Приложение работает в портативном режиме на базе Electron и не требует установки в систему.
+
+Скрипт запускает патчер в контейнере, создаёт ZIP в `.versions/<версия>/mod/dist/` и проверяет, что архив содержит точку входа Electron, Linux ffmpeg и пути с разделителем `/`. Перед публикацией готовый архив можно проверить отдельно: `python3 scripts/linux/verify_release.py <архив.zip>`.
+
+На GitHub та же сборка запускается автоматически при пуше в `master` или вручную на вкладке **Actions → Linux portable build**. Готовый ZIP можно скачать из артефактов успешного запуска.
 
 ### 📱 Android (Мобильный клиент)
 

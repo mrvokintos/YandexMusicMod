@@ -1,7 +1,5 @@
-Write-Host "Building Docker image for electron-builder..."
-docker build -t ymliberty-builder .
-
-Write-Host "Running build inside Docker container..."
-docker run --rm -v "${PWD}:/workspace" ymliberty-builder
-
-Write-Host "Build complete! Check the 'dist' folder."
+$repo = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
+docker build -t ymliberty-linux-builder -f (Join-Path $PSScriptRoot "Dockerfile") $repo
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+docker run --rm -v "${repo}:/workspace" ymliberty-linux-builder
+exit $LASTEXITCODE

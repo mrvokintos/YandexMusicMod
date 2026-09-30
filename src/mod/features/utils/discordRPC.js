@@ -4,7 +4,7 @@ const { Client } = require("@xhayper/discord-rpc");
 const CLIENT_ID = "1283109459463377011";
 const ACTIVITY_COOLDOWN = 10 * 1000;
 
-let lastActivityChanged = Date.now();
+let lastActivityChanged = 0;
 let client;
 
 function initRpc() {
@@ -36,14 +36,16 @@ function initRpc() {
 }
 
 async function updateActivity() {
-  setTimeout(updateActivity, 500);
+  setTimeout(updateActivity, 1000);
 
   if (lastActivityChanged + ACTIVITY_COOLDOWN > Date.now()) return;
 
   if (!client?.user) return;
+  lastActivityChanged = Date.now();
 
   try {
     const playerState = await GetAppPlayerState();
+    if (!playerState) return;
 
     // Discord RPC не включен
     if (!playerState?.enabled) {
@@ -100,7 +102,6 @@ async function updateActivity() {
 
     client.user.setActivity(rpcRequest);
 
-    lastActivityChanged = Date.now();
   } catch (ex) {
     console.log("[DISCORD RPC]", ex);
   }
@@ -110,12 +111,29 @@ initRpc();
 updateActivity();
 
 async function GetAppPlayerState() {
-  const [win] = BrowserWindow.getAllWindows();
-  if (win && !win.isDestroyed()) {
-    return win.webContents.executeJavaScript(`
-        (()=>{
-            return window.__getPlayerState();
-        })()
-       `);
+  const win = BrowserWindow.getAllWindows().find(
+    (window) =>
+      !window.isDestroyed() &&
+      !window.webContents.isDestroyed() &&
+      window.webContents.getURL().startsWith("music-application://desktop/"),
+  );
+  if (!win || win.webContents.isLoading()) return null;
+
+  try {
+    return await win.webContents.executeJavaScript(`
+      (() => {
+        if (typeof window.__getPlayerState !== "function") return null;
+        try {
+          return window.__getPlayerState();
+        } catch (error) {
+          console.error("[DISCORD RPC] Player state error:", error);
+          return null;
+        }
+      })()
+    `);
+  } catch (error) {
+    // Navigation can destroy the renderer while Electron executes the script.
+    if (error?.message?.includes("Script failed to execute")) return null;
+    throw error;
   }
 }

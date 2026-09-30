@@ -1,0 +1,5 @@
+.git
+.env
+.versions
+node_modules
+src/mod/dist

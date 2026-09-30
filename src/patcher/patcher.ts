@@ -66,7 +66,7 @@ export async function processBuild(build: AppBuild) {
   const appAsarPath = path.resolve(path.join(extractDir, "resources", "app.asar"));
   const appIconPath = path.resolve(path.join(extractDir, "resources", "assets", "icon.ico"));
 
-  if (appAsarPath) {
+  if (fs.existsSync(appAsarPath)) {
     logProgress(`✔️   Found app.asar`);
   } else {
     logProgress(`❌ app.asar was not found inside the extracted installer for ${build.version}`);
@@ -156,6 +156,7 @@ export async function processBuild(build: AppBuild) {
   packageJsonContents.build = {
     appId: "ru.yandex.desktop.music.mod",
     productName: "Яндекс Музыка",
+    asarUnpack: ["node_modules/ffmpeg-static/ffmpeg*"],
     win: {
       icon: "assets/icon.ico",
       requestedExecutionLevel: "requireAdministrator",
@@ -167,6 +168,7 @@ export async function processBuild(build: AppBuild) {
     },
     linux: {
       icon: "assets/icon.png",
+      target: ["zip"],
     },
     extraResources: [
       {
@@ -176,6 +178,12 @@ export async function processBuild(build: AppBuild) {
       },
     ],
   };
+
+  if (process.platform === "linux") {
+    packageJsonContents.build.extraFiles = [
+      { from: path.join(__projectRoot, "scripts/linux/install-desktop.py"), to: "install-desktop.py" },
+    ];
+  }
 
   logProgress(`🛠️  Merge dependencies`);
 
@@ -199,6 +207,19 @@ export async function processBuild(build: AppBuild) {
 
   let indexJsContents = fs.readFileSync(staticFiles.indexJs, "utf8");
 
+  const trayIconPattern = /const createPngIcon = \(\) => \{[\s\S]*?\n\};(?=\s*const createIcoIcon)/;
+  if (!trayIconPattern.test(indexJsContents)) {
+    logProgress("❌ Linux tray icon setup was not found in index.js");
+    return;
+  }
+  indexJsContents = indexJsContents.replace(
+    trayIconPattern,
+    `const createPngIcon = () => {
+  const iconPath = path.join(process.resourcesPath, "assets", "icon.png");
+  return electron.nativeImage.createFromPath(iconPath);
+};`,
+  );
+
   indexJsContents =
     `
     const yandexMusicMod_fs = require("fs");
@@ -214,7 +235,7 @@ export async function processBuild(build: AppBuild) {
   if (/constructor\(\)\s+{\s+this\.logger = new Logger\("UpdateLogger"\)/g.test(indexJsContents)) {
     indexJsContents = indexJsContents.replace(
       /constructor\(\)\s+{\s+this\.logger = new Logger\("UpdateLogger"\)/g,
-      "constructor() { return \n",
+      'constructor() { this.logger = new Logger("UpdateLogger"); this.check = async () => {}; this.start = () => {}; return;\n',
     );
   } else {
     logProgress(`❌ Updater class is not found in index.js`);
@@ -385,8 +406,16 @@ export async function processBuild(build: AppBuild) {
     outdir: modCompiledDir,
   });
 
+  // The upstream preload is CommonJS, while recent uuid releases are ESM-only.
+  // Keep its existing uuid.v4() calls working with Node's built-in implementation.
+  let originalPreloadJsContents = fs.readFileSync(staticFiles.preloadJs, "utf8");
+  originalPreloadJsContents = originalPreloadJsContents.replace(
+    /\buuid\s*=\s*require\(["']uuid["']\)/,
+    'uuid = { v4: require("node:crypto").randomUUID }',
+  );
+
   let preloadJsContents =
-    fs.readFileSync(staticFiles.preloadJs, "utf8") +
+    originalPreloadJsContents +
     `\n\n// yandexMusicMod preload.js\n(async () => {
         ${fs.readFileSync(path.join(modCompiledDir, "preload.js"), "utf8")}
       })();`;
